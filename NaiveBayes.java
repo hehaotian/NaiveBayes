@@ -4,7 +4,7 @@ LING 572 Homework 3
 @author: Haotian He
 @time: 23:28, 01/23/2014
  
-This is a collection for Naive Bayes class to 
+This is a collection for Naive Bayes model
  
 */
 
