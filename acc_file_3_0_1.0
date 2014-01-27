@@ -1,0 +1,22 @@
+class_num=3 feat_num=32846
+class_num=3 feat_num=32846
+Confusion matrix for the training data:
+row is the truth, column is the system output
+
+	talk.politics.guns talk.politics.mideast talk.politics.misc 
+talk.politics.guns 887 1 11 
+talk.politics.mideast 8 863 28 
+talk.politics.misc 46 33 820 
+
+ Training accuracy=0.9529106414534668
+
+
+Confusion matrix for the test data:
+row is the truth, column is the system output
+
+	talk.politics.guns talk.politics.mideast talk.politics.misc 
+talk.politics.guns 94 0 5 
+talk.politics.mideast 1 96 2 
+talk.politics.misc 18 4 77 
+
+ Test accuracy=0.898989898989899
