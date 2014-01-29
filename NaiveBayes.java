@@ -8,10 +8,9 @@ This is a collection for Naive Bayes model
  
 */
 
-
-
 import java.io.*;
 import java.util.*;
+import java.text.*;
 
 public class NaiveBayes {
    
@@ -57,6 +56,8 @@ public class NaiveBayes {
          classLabel = tokens[0];
          classLabs.add(classLabel);
          
+         // 1) judges whether it is NullPointerFunction; train_data
+         // 2) counts the number of documents given the class. documents_count(className, count)
          if (!train_data.containsKey(classLabel)) {
             train_data.put(classLabel, new HashMap<String, Integer>());
             documents_count.put(classLabel, 1);
@@ -64,22 +65,30 @@ public class NaiveBayes {
             documents_count.put(classLabel, documents_count.get(classLabel) + 1);
          }
          
+         
+         // reads the training vectors
          for (int i = 1; i < tokens.length; i++) {
+            
             String token = tokens[i];
             String word = token.replaceAll(":[\\d]+", "");
             
+            // counts the number of the unique features HashSet<String>
             unique_features_count.add(word);
             
+            // gets the word counts
             int count = 0;
             if (!bernoulli) count = Integer.parseInt(token.replaceAll("[\\w]+:", ""));
             else count = 1;
                
+            //
             if (!words_count.containsKey(classLabel)) {
                words_count.put(classLabel, count);
             } else {
                words_count.put(classLabel, words_count.get(classLabel) + count);
             }
+            //
             
+            // put all the class/word/count information into the training data map
             if (train_data.get(classLabel).containsKey(word)) {
                train_data.get(classLabel).put(word, train_data.get(classLabel).get(word) + count);
             } else {
@@ -90,12 +99,12 @@ public class NaiveBayes {
       
       ps.println("%%%%% prior prob P(c) %%%%%");
       for (String doc_cl : documents_count.keySet()) {
-         double prior_prob = (prior_delta + documents_count.get(doc_cl) * 1.0) / (all_documents + prior_delta * documents_count.keySet().size());
+         double prior_prob = (prior_delta * 1.0 + documents_count.get(doc_cl)) / (all_documents + prior_delta * documents_count.keySet().size());
          double lg_prior_prob = Math.log10(prior_prob);
          ps.println(doc_cl + "\t" + prior_prob + "\t" + lg_prior_prob);
          classProbs.put(doc_cl, lg_prior_prob);
       }
-      
+     
       ps.println("%%%%% conditional prob P(f|c) %%%%%");
       for (String className : train_data.keySet()) {
          ps.println("%%%%% conditional prob P(f|c) c=" + className + " %%%%%");
@@ -105,9 +114,12 @@ public class NaiveBayes {
                value = train_data.get(className).get(w);
             }
             double cond_prob = 0.0;
-            if (!bernoulli) cond_prob = (cond_prob_delta + value * 1.0) / (cond_prob_delta * unique_features_count.size() + words_count.get(className));
-            else cond_prob = (cond_prob_delta + value * 1.0) / (cond_prob_delta * 2 + words_count.get(className));
-               
+            if (!bernoulli) { 
+               cond_prob = (cond_prob_delta * 1.0 + value) / (cond_prob_delta * unique_features_count.size() + words_count.get(className));
+            } else {
+               cond_prob = (cond_prob_delta * 1.0 + value) / (cond_prob_delta * 2.0 + documents_count.get(className));
+            }
+              
             double lg_cond_prob = Math.log10(cond_prob);
             ps.println(w + "\t" + className + "\t" + cond_prob + "\t" + lg_cond_prob);
             String feat_class = w + "_" + className;
@@ -116,7 +128,7 @@ public class NaiveBayes {
       }
    }
    
-   public void prediction(String file_path, PrintStream ps) throws IOException {
+   public void prediction(String file_path, PrintStream ps, boolean bernoulli) throws IOException {
       
       BufferedReader br = new BufferedReader(new FileReader(file_path));
       
@@ -139,34 +151,55 @@ public class NaiveBayes {
          instanceName ++;
          String[] tokens = line.split(" ");
          correct_classLabel = tokens[0];
-         Map<String, Double> pred_probs = new HashMap<String, Double>();
+         Map<String, Double> pred_probs_logs = new HashMap<String, Double>();
          
          Iterator itr = classLabs.iterator();
          while (itr.hasNext()) {
             String label = "" + itr.next();
-            double pred_prob = 0.0;
-            double sum_cond_probs = 0.0;
+            double sum_cond_probs_logs = 0.0;
             
             for (int i = 1; i < tokens.length; i++) {
                String word = tokens[i].replaceAll(":[\\d]+", "");
                String feature_key = word + "_" + label;
-               if (train_model.containsKey(feature_key)) {
-                  sum_cond_probs += train_model.get(feature_key);
+               if (!bernoulli) {
+                  if (train_model.containsKey(feature_key)) {
+                     sum_cond_probs_logs += train_model.get(feature_key);
+                  }
+               } else {
+                  double temp = 0.0;
+                  if (train_model.containsKey(feature_key)) {
+                     temp = train_model.get(feature_key);
+                     sum_cond_probs_logs += temp;
+                  } else {
+                     double non_prob = 1 - Math.pow(10, temp);
+                     if (non_prob == 0.0) non_prob = Double.MIN_VALUE;
+                     sum_cond_probs_logs += Math.log10(non_prob);
+                  }
                }
             }
             
-            pred_prob = Math.pow(1.077, sum_cond_probs + classProbs.get(label));
-            pred_probs.put(label, pred_prob);
+            pred_probs_logs.put(label, sum_cond_probs_logs + classProbs.get(label));
          }
          
+         double max = Double.NEGATIVE_INFINITY;
+         for (String class_1 : pred_probs_logs.keySet()) {
+            double log = pred_probs_logs.get(class_1);
+            if (log > max) max = log;
+         }
+         
+         for (String class_2 : pred_probs_logs.keySet()) {
+            double final_prob = Math.pow(10, pred_probs_logs.get(class_2) - max);
+            pred_probs_logs.put(class_2, final_prob);
+         }
+
          Map<String, Double> final_pred_probs = new HashMap<String, Double>();
          
          double sum_classes = 0.0;
-         for (String class_1 : pred_probs.keySet()) {
-            sum_classes += pred_probs.get(class_1);
+         for (String class_3 : pred_probs_logs.keySet()) {
+            sum_classes += pred_probs_logs.get(class_3);
          }
-         for (String class_2 : pred_probs.keySet()) {
-            final_pred_probs.put(class_2, pred_probs.get(class_2) / sum_classes);
+         for (String class_4 : pred_probs_logs.keySet()) {
+            final_pred_probs.put(class_4, pred_probs_logs.get(class_4) / sum_classes);
          }
          
          Map<String, String> descend_probs = sortByComparator(final_pred_probs);

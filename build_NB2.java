@@ -26,8 +26,8 @@ public class build_NB2 {
         
         NaiveBayes nb = new NaiveBayes(train_path, test_path, prior_delta, cond_prob_delta);
         nb.build_model(model, bernoulli);
-        nb.prediction(train_path, sys);
-        nb.prediction(test_path, sys);
+        nb.prediction(train_path, sys, bernoulli);
+        nb.prediction(test_path, sys, bernoulli);
         nb.confusion_matrix();
 
     }
